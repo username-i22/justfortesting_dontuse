@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Battle</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- PeerJS for direct browser-to-browser P2P multiplayer without a backend server -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+
+    <!-- Sound On / Off Toggle -->
+    <button id="btn-sound-toggle" class="sound-toggle" title="Toggle Sound">🔊</button>
+
+    <!-- 1. MAIN MENU SCREEN -->
+    <div id="screen-menu" class="screen active">
+        <div class="glass-panel menu-box">
+            <h1 class="game-title">TETRIS BATTLE</h1>
+            <p class="game-subtitle">Fast-paced 1v1 Block Battle Arena</p>
+            
+            <div class="menu-buttons">
+                <button id="btn-solo" class="btn btn-primary">
+                    <span>⚔️</span> Solo Play (VS AI)
+                </button>
+                <button id="btn-multi" class="btn btn-secondary">
+                    <span>👥</span> Multiplayer (VS Friend)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. MULTIPLAYER LOBBY SCREEN -->
+    <div id="screen-lobby" class="screen">
+        <div class="glass-panel menu-box">
+            <h2 style="font-size: 2rem; margin-bottom: 0.5rem; color: #38bdf8;">Multiplayer Lobby</h2>
+            <p id="lobby-status" style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.95rem;">
+                Create a room to invite a friend, or enter their room code.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 1.2rem;">
+                <button id="btn-create-room" class="btn btn-primary">
+                    <span>➕</span> Create New Room
+                </button>
+
+                <!-- Room Code Display when Hosting -->
+                <div id="host-info" style="display: none; background: rgba(0, 0, 0, 0.4); padding: 1rem; border-radius: 10px; border: 1px dashed rgba(255, 255, 255, 0.2);">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">ROOM CODE:</div>
+                    <div id="room-code-display" style="font-size: 2.2rem; font-weight: 900; letter-spacing: 5px; color: #fbbf24;">-----</div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">
+                    <div style="flex: 1; height: 1px; background: rgba(255, 255, 255, 0.1);"></div>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">OR JOIN</span>
+                    <div style="flex: 1; height: 1px; background: rgba(255, 255, 255, 0.1);"></div>
+                </div>
+
+                <input type="text" id="input-room-code" class="input-field" placeholder="ENTER 5-LETTER CODE" maxlength="5">
+                <button id="btn-join-room" class="btn btn-secondary">
+                    <span>🚀</span> Join Room
+                </button>
+
+                <button id="btn-lobby-back" class="btn btn-dark" style="margin-top: 0.5rem;">
+                    Back to Menu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. BATTLE ARENA SCREEN -->
+    <div id="screen-battle" class="screen">
+        <div class="battle-container">
+
+            <!-- PLAYER 1 (YOU) -->
+            <div class="player-section">
+                <div class="player-header">
+                    <span id="p1-name" class="player-name">👤 You</span>
+                    <div class="ko-badges">KO: <span id="p1-kos">0</span> ⭐</div>
+                </div>
+
+                <div class="play-area">
+                    <!-- HOLD PIECE -->
+                    <div class="side-panel">
+                        <div class="panel-card">
+                            <div class="panel-title">HOLD</div>
+                            <canvas id="p1-hold" class="mini-canvas" width="64" height="64"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- P1 BOARD -->
+                    <div class="board-wrapper">
+                        <canvas id="p1-board" class="board-canvas" width="240" height="480"></canvas>
+                    </div>
+
+                    <!-- INCOMING GARBAGE METER -->
+                    <div class="garbage-meter-container" title="Incoming Attack Garbage">
+                        <div id="p1-garbage" class="garbage-bar" style="height: 0%;"></div>
+                    </div>
+
+                    <!-- NEXT PIECE & STATS -->
+                    <div class="side-panel">
+                        <div class="panel-card">
+                            <div class="panel-title">NEXT</div>
+                            <canvas id="p1-next" class="mini-canvas" width="64" height="64"></canvas>
+                        </div>
+                        <div class="panel-card" style="margin-top: auto;">
+                            <div class="panel-title">SCORE</div>
+                            <div id="p1-score" style="font-weight: 800; color: #38bdf8;">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- On-Screen Mobile Touch Controls -->
+                <div class="touch-controls">
+                    <button class="btn btn-dark" data-action="left" style="flex: 1;">◀</button>
+                    <button class="btn btn-dark" data-action="rotate" style="flex: 1;">🔄</button>
+                    <button class="btn btn-dark" data-action="right" style="flex: 1;">▶</button>
+                    <button class="btn btn-dark" data-action="down" style="flex: 1;">▼</button>
+                    <button class="btn btn-primary" data-action="drop" style="flex: 1;">⏬</button>
+                    <button class="btn btn-secondary" data-action="hold" style="flex: 1;">H</button>
+                </div>
+            </div>
+
+            <!-- CENTER HUD (VS & TIMER) -->
+            <div class="center-hud">
+                <div class="timer-box">
+                    <div class="timer-label">TIME LEFT</div>
+                    <div id="match-timer" class="timer-digits">2:00</div>
+                </div>
+
+                <div class="vs-badge">VS</div>
+
+                <button id="btn-battle-exit" class="btn btn-dark" style="padding: 0.6rem 1rem; font-size: 0.9rem;">
+                    Surrender
+                </button>
+            </div>
+
+            <!-- PLAYER 2 (OPPONENT / AI) -->
+            <div class="player-section">
+                <div class="player-header">
+                    <span id="p2-name" class="player-name">⚔️ Opponent</span>
+                    <div class="ko-badges">KO: <span id="p2-kos">0</span> ⭐</div>
+                </div>
+
+                <div class="play-area">
+                    <!-- HOLD PIECE -->
+                    <div class="side-panel">
+                        <div class="panel-card">
+                            <div class="panel-title">HOLD</div>
+                            <canvas id="p2-hold" class="mini-canvas" width="64" height="64"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- P2 BOARD -->
+                    <div class="board-wrapper">
+                        <canvas id="p2-board" class="board-canvas" width="240" height="480"></canvas>
+                    </div>
+
+                    <!-- INCOMING GARBAGE METER -->
+                    <div class="garbage-meter-container" title="Incoming Attack Garbage">
+                        <div id="p2-garbage" class="garbage-bar" style="height: 0%;"></div>
+                    </div>
+
+                    <!-- NEXT PIECE & STATS -->
+                    <div class="side-panel">
+                        <div class="panel-card">
+                            <div class="panel-title">NEXT</div>
+                            <canvas id="p2-next" class="mini-canvas" width="64" height="64"></canvas>
+                        </div>
+                        <div class="panel-card" style="margin-top: auto;">
+                            <div class="panel-title">SCORE</div>
+                            <div id="p2-score" style="font-weight: 800; color: #ef4444;">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Banner Overlay (TETRIS, KO!) -->
+    <div id="match-banner" class="banner-overlay"></div>
+
+    <!-- GAME OVER / VICTORY MODAL -->
+    <div id="gameover-modal" class="modal-overlay">
+        <div class="glass-panel modal-card">
+            <h2 id="modal-title" class="modal-title">VICTORY!</h2>
+            <p id="modal-desc" class="modal-text">You defeated your opponent!</p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <button id="btn-play-again" class="btn btn-primary">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Scripts -->
+    <script src="js/sound.js"></script>
+    <script src="js/tetris.js"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/network.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
